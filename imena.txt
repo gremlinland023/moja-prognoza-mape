@@ -1,0 +1,19 @@
+== o/8a8e51.txt
+      3 BRISANJE PODATAKA – MOJA PROGNOZA
+      1 DATA DELETION – MOJA PROGNOZA
+      2 Obriši sve podatke
+== o/b0dcdf.txt
+      2 Obriši sve podatke
+      3 POLITIKA PRIVATNOSTI – MOJA PROGNOZA
+      1 PRIVACY POLICY – MOJA PROGNOZA
+      4 RHMZ
+      2 hidmet.gov.rs
+== o/imena.txt
+      1 BRISANJE PODATAKA – MOJA PROGNOZA
+      1 DATA DELETION – MOJA PROGNOZA
+      2 Obriši sve podatke
+      1 POLITIKA PRIVATNOSTI – MOJA PROGNOZA
+      1 PRIVACY POLICY – MOJA PROGNOZA
+      1 RHMZ
+      1 hidmet.gov.rs
+== o/rezime.txt
