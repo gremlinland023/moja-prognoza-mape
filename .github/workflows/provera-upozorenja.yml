@@ -8,10 +8,9 @@ jobs:
       - run: |
           mkdir o
           for u in \
-            "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-serbia" \
-            "https://feeds.meteoalarm.org/api/v1/warnings/feeds-serbia" \
-            "https://www.hidmet.gov.rs/latin/upozorenja/index.php" \
-            "https://www.hidmet.gov.rs/eng/upozorenja/index.php" ; do
+            "https://hidmet.gov.rs/eng/osmotreni/index.xml" \
+            "https://hidmet.gov.rs/latin/osmotreni/index.xml" \
+            "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-serbia" ; do
             n=$(echo "$u" | md5sum | cut -c1-6)
             code=$(curl -sL -m 30 -A "Mozilla/5.0" -o o/$n.txt -w "%{http_code} %{content_type} %{size_download}" "$u")
             echo "$u -> $code -> fajl $n.txt" >> o/rezime.txt
