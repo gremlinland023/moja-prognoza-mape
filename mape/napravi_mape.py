@@ -155,7 +155,7 @@ def main():
         if cb is not None:
             cl = ndimage.gaussian_filter(dekodiraj(cb)[0], 0.7)
             cc = uzorkuj(cl, koord)
-            slika(np.full(cc.shape + (3,), 238.0), np.clip((cc - 15) / 85, 0, 1) ** 1.2 * 190, f"c_{h:03d}.webp")
+            slika(np.full(cc.shape + (3,), 238.0), np.clip((cc - 20) / 80, 0, 1) ** 1.3 * 140, f"c_{h:03d}.webp")
             for k, v in enumerate(ndimage.map_coordinates(cl, gk, order=1)):
                 gradN[k].append(int(round(float(np.clip(v, 0, 100)))))
         else:
