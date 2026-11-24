@@ -1,0 +1,41 @@
+name: Pravi mape
+# Na svaka 3 sata preuzima ICON-EU (DWD) i pravi slike za aplikaciju Moja prognoza.
+# Slike idu na granu "mape" (samo poslednja verzija, bez istorije).
+on:
+  schedule:
+    - cron: "40 */3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["mape/**", ".github/workflows/mape.yml"]
+concurrency: { group: mape, cancel-in-progress: false }
+jobs:
+  mape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Biblioteke
+        run: pip install numpy scipy pillow eccodes eccodeslib
+      - name: Napravi mape
+        env: { SATI: "48", IZLAZ: "izlaz" }
+        run: python mape/napravi_mape.py
+      - name: Objavi na granu mape
+        run: |
+          cd izlaz
+          git init -q && git checkout -q -b mape
+          git config user.name "robot-mape" && git config user.email "robot-mape@users.noreply.github.com"
+          git add -A && git commit -qm "mape $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" mape
+      - name: Održavanje (GitHub gasi zakazane poslove posle 60 dana bez izmena)
+        run: |
+          poslednji=$(git log -1 --format=%ct origin/main)
+          if [ $(( $(date +%s) - poslednji )) -gt $(( 40 * 86400 )) ]; then
+            git config user.name "robot-mape" && git config user.email "robot-mape@users.noreply.github.com"
+            git commit --allow-empty -qm "održavanje"
+            git push -q origin HEAD:main
+          fi
