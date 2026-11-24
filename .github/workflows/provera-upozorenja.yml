@@ -8,14 +8,25 @@ jobs:
       - run: |
           mkdir o
           for u in \
-            "https://hidmet.gov.rs/eng/osmotreni/index.xml" \
-            "https://hidmet.gov.rs/latin/osmotreni/index.xml" \
-            "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-serbia" ; do
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Ne" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Neg" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Nego" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Zre" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Nov" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Bec" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Neg&countryCode=RS" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Zr" \
+            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Kik" \
+            ; do
             n=$(echo "$u" | md5sum | cut -c1-6)
             code=$(curl -sL -m 30 -A "Mozilla/5.0" -o o/$n.txt -w "%{http_code} %{content_type} %{size_download}" "$u")
             echo "$u -> $code -> fajl $n.txt" >> o/rezime.txt
           done
-          cat o/rezime.txt
+          cat o/rezime.txt; for f in o/*.txt; do echo "== $f"; python3 -c "import json,sys
+try:
+  d=json.load(open(sys.argv[1]))
+  print([ (r['name'], r.get('country_code'), r.get('admin1')) for r in d.get('results',[])])
+except Exception as e: print('x',e)" $f; done > o/imena.txt; cat o/imena.txt
       - run: |
           cd o && git init -q && git checkout -q -b provera-rezultat
           git config user.name robot && git config user.email robot@users.noreply.github.com
