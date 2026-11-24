@@ -36,21 +36,29 @@ GRADOVI = [
     ["Bratislava",48.149,17.107],["Venecija",45.441,12.316],["Bari",41.117,16.872],
 ]
 
-# ---------- palete ----------
-# temperatura (°C) -> boja, meki prelivi kao na velikim aplikacijama
-T_PAL = [(-30,(90,0,130)),(-20,(130,60,200)),(-12,(70,80,225)),(-6,(40,130,240)),(-2,(80,180,250)),
-         (0,(150,215,250)),(2,(120,210,190)),(5,(100,200,120)),(10,(170,215,70)),(15,(240,220,60)),
-         (20,(250,175,50)),(25,(245,120,40)),(30,(225,60,40)),(35,(180,20,40)),(40,(120,0,60))]
-# kiša (mm/h)
-K_PAL = [(0.1,(120,190,255)),(0.5,(40,130,245)),(1.5,(0,190,110)),(3,(190,225,0)),(6,(255,175,0)),
-         (12,(240,45,30)),(25,(200,0,170))]
-# sneg (mm/h vode)
-SN_PAL = [(0.1,(235,230,255)),(0.5,(205,180,255)),(1.5,(160,110,245)),(4,(115,55,215))]
+# ---------- palete (stil kao Vreme & Radar) ----------
+# temperatura: puna polja, nova boja na svaki stepen
+T_PAL = [(-24,(110,30,150)),(-18,(90,50,190)),(-12,(60,80,215)),(-8,(45,115,230)),(-5,(55,150,240)),
+         (-2,(90,190,245)),(0,(150,225,245)),(1,(60,170,70)),(4,(85,190,45)),(7,(125,208,30)),(10,(185,220,20)),
+         (13,(240,220,25)),(16,(250,185,30)),(19,(245,150,30)),(22,(240,115,30)),(26,(225,70,35)),(30,(200,35,40)),
+         (35,(150,15,60)),(40,(110,5,80))]
+# kiša (mm/h): plave stepenice, jaka kiša ljubičasto
+K_STEP = [(0.1,(175,235,255)),(0.3,(120,210,250)),(0.7,(60,170,245)),(1.5,(30,120,230)),(3,(20,80,210)),
+          (6,(15,45,170)),(12,(130,45,205)),(25,(215,45,200))]
+# sneg: belo do roze
+SN_STEP = [(0.1,(245,245,255)),(0.4,(255,220,245)),(1.2,(250,180,235)),(3,(230,130,220))]
 
 def oboji(v, pal):
     x = np.array([p[0] for p in pal], float)
     c = np.array([p[1] for p in pal], float)
     return np.stack([np.interp(v, x, c[:, k]) for k in range(3)], -1)
+
+def stepenice(v, st):
+    """Ravne boje po stepenicama (kao radar)."""
+    out = np.zeros(v.shape + (3,))
+    for g, c in st:
+        out[v >= g] = c
+    return out
 
 # ---------- preuzimanje ----------
 def url(run, var, h):
@@ -119,11 +127,12 @@ def main():
     run = poslednji_run()
     print("Proračun:", run)
     koraci = list(range(0, SATI + 1))
-    poslovi = [(var, h) for h in koraci for var in ("t_2m", "tot_prec", "snow_gsp", "snow_con")]
+    poslovi = [(var, h) for h in koraci for var in ("t_2m", "tot_prec", "snow_gsp", "snow_con", "clct")]
     with ThreadPoolExecutor(12) as ex:
         sirovo = dict(zip(poslovi, ex.map(lambda p: preuzmi(url(run, *p)), poslovi)))
     koord = None
-    vremena, gradT = [], [[] for _ in GRADOVI]
+    vremena = []
+    gradT, gradN, gradP, gradS = ([[] for _ in GRADOVI] for _ in range(4))
     preth = None
     for h in koraci:
         tb = sirovo[("t_2m", h)]
@@ -137,7 +146,20 @@ def main():
             gk = np.array([[(g[1] - la1) / dla for g in GRADOVI], [(g[2] - lo1) / dlo for g in GRADOVI]])
         # temperatura
         tt = uzorkuj(t, koord)
-        slika(oboji(tt, T_PAL), np.full(tt.shape, 190.0), f"t_{h:03d}.webp")
+        # puna polja po 1 °C, ivice blago omekšane
+        tb = np.floor(tt) + 0.5
+        boja_t = ndimage.uniform_filter(oboji(tb, T_PAL), size=(3, 3, 1))
+        slika(boja_t, np.full(tt.shape, 235.0), f"t_{h:03d}.webp")
+        # oblaci: beli, providni
+        cb = sirovo[("clct", h)]
+        if cb is not None:
+            cl = ndimage.gaussian_filter(dekodiraj(cb)[0], 0.7)
+            cc = uzorkuj(cl, koord)
+            slika(np.full(cc.shape + (3,), 238.0), np.clip((cc - 15) / 85, 0, 1) ** 1.2 * 190, f"c_{h:03d}.webp")
+            for k, v in enumerate(ndimage.map_coordinates(cl, gk, order=1)):
+                gradN[k].append(int(round(float(np.clip(v, 0, 100)))))
+        else:
+            for k in range(len(GRADOVI)): gradN[k].append(None)
         for k, v in enumerate(ndimage.map_coordinates(t, gk, order=1)):
             gradT[k].append(round(float(v), 1))
         # padavine: razlika akumulacije u odnosu na prethodni sat
@@ -151,13 +173,18 @@ def main():
             for v in ("snow_gsp", "snow_con"):
                 if sada[v] is not None and preth[v] is not None:
                     sn += np.maximum(0, sada[v] - preth[v])
-            pr = ndimage.gaussian_filter(pr, 0.8)
-            udeo = ndimage.gaussian_filter(np.where(pr > 0.02, sn / np.maximum(pr, 1e-6), 0), 0.8)
+            pr = ndimage.gaussian_filter(pr, 1.0)
+            udeo = ndimage.gaussian_filter(np.where(pr > 0.02, sn / np.maximum(pr, 1e-6), 0), 1.0)
+            for k, (pv, uv) in enumerate(zip(ndimage.map_coordinates(pr, gk, order=1), ndimage.map_coordinates(udeo, gk, order=1))):
+                gradP[k].append(round(float(pv), 1)); gradS[k].append(bool(uv > 0.5))
             pp = np.maximum(0, uzorkuj(pr, koord))
             ud = uzorkuj(udeo, koord, 1)
-            boja = np.where((ud > 0.5)[..., None], oboji(pp, SN_PAL), oboji(pp, K_PAL))
-            alfa = np.clip((pp - 0.08) / 0.4, 0, 1) * 225
+            boja = np.where((ud > 0.5)[..., None], stepenice(pp, SN_STEP), stepenice(pp, K_STEP))
+            boja = ndimage.uniform_filter(boja, size=(3, 3, 1))
+            alfa = ndimage.uniform_filter(np.where(pp >= 0.1, 235.0, 0.0), size=3)
             slika(boja, alfa, f"p_{h:03d}.webp")
+        else:
+            for k in range(len(GRADOVI)): gradP[k].append(0.0); gradS[k].append(False)
         if sada["tot_prec"] is not None:
             preth = sada
         vremena.append((run + dt.timedelta(hours=h)).strftime("%Y-%m-%dT%H:00Z"))
@@ -166,7 +193,7 @@ def main():
         "napravljeno": dt.datetime.now(dt.timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%dT%H:%MZ"),
         "granice": {"sever": S, "jug": J, "zapad": Z, "istok": I},
         "vremena": vremena,             # t_000 = vremena[0]; p_ postoji od 1. sata
-        "gradovi": [{"ime": g[0], "lat": g[1], "lon": g[2], "t": gradT[k]} for k, g in enumerate(GRADOVI)],
+        "gradovi": [{"ime": g[0], "lat": g[1], "lon": g[2], "t": gradT[k], "n": gradN[k], "p": gradP[k], "s": gradS[k]} for k, g in enumerate(GRADOVI)],
     }, open(os.path.join(IZLAZ, "index.json"), "w"), ensure_ascii=False)
     print("Gotovo:", len(vremena), "sati")
 
