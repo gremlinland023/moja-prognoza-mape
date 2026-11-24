@@ -8,22 +8,15 @@ jobs:
       - run: |
           mkdir o
           for u in \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Ne" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Neg" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Nego" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Zre" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Nov" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Bec" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Neg&countryCode=RS" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Zr" \
-            "https://geocoding-api.open-meteo.com/v1/search?count=10&language=sr&format=json&name=Kik" \
+            "https://sites.google.com/view/moja-prognoza" \
+            "https://sites.google.com/view/moja-prognoza/brisanje-podataka" \
             ; do
             n=$(echo "$u" | md5sum | cut -c1-6)
             code=$(curl -sL -m 30 -A "Mozilla/5.0" -o o/$n.txt -w "%{http_code} %{content_type} %{size_download}" "$u")
             echo "$u -> $code -> fajl $n.txt" >> o/rezime.txt
           done
           cat o/rezime.txt
-          for f in o/*.txt; do echo "== $f"; jq -c '[.results[]? | [.name, .country_code, .admin1]]' "$f" 2>/dev/null || true; done > o/imena.txt; cat o/imena.txt
+          for f in o/*.txt; do echo "== $f"; grep -o -E 'POLITIKA PRIVATNOSTI[^<]{0,40}|PRIVACY POLICY[^<]{0,30}|RHMZ|hidmet.gov.rs|BRISANJE PODATAKA[^<]{0,30}|DATA DELETION[^<]{0,30}|Obriši sve podatke' "$f" | sort | uniq -c || true; done > o/imena.txt; cat o/imena.txt
       - run: |
           cd o && git init -q && git checkout -q -b provera-rezultat
           git config user.name robot && git config user.email robot@users.noreply.github.com
