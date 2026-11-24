@@ -1,0 +1,23 @@
+name: Provera upozorenja
+on: { push: { branches: [provera-upozorenja] } }
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - run: |
+          mkdir o
+          for u in \
+            "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-serbia" \
+            "https://feeds.meteoalarm.org/api/v1/warnings/feeds-serbia" \
+            "https://www.hidmet.gov.rs/latin/upozorenja/index.php" \
+            "https://www.hidmet.gov.rs/eng/upozorenja/index.php" ; do
+            n=$(echo "$u" | md5sum | cut -c1-6)
+            code=$(curl -sL -m 30 -A "Mozilla/5.0" -o o/$n.txt -w "%{http_code} %{content_type} %{size_download}" "$u")
+            echo "$u -> $code -> fajl $n.txt" >> o/rezime.txt
+          done
+          cat o/rezime.txt
+      - run: |
+          cd o && git init -q && git checkout -q -b provera-rezultat
+          git config user.name robot && git config user.email robot@users.noreply.github.com
+          git add -A && git commit -qm r && git push -f -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" provera-rezultat
