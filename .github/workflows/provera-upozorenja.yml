@@ -23,7 +23,7 @@ jobs:
             echo "$u -> $code -> fajl $n.txt" >> o/rezime.txt
           done
           cat o/rezime.txt
-          for f in o/*.txt; do echo "== $f"; jq -c '[.results[]? | [.name, .country_code, .admin1]]' "$f" 2>/dev/null; done > o/imena.txt; cat o/imena.txt
+          for f in o/*.txt; do echo "== $f"; jq -c '[.results[]? | [.name, .country_code, .admin1]]' "$f" 2>/dev/null || true; done > o/imena.txt; cat o/imena.txt
       - run: |
           cd o && git init -q && git checkout -q -b provera-rezultat
           git config user.name robot && git config user.email robot@users.noreply.github.com
